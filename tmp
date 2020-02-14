@@ -1,0 +1,286 @@
+    id     | period |  time_key  | ordering_channel | days_amt | price_daily | service_id | region_key | new_users_tnb | new_users_paid | tnb_paid_con | unsub_tnb | unsub_paid | unsub_same_day | unsub_auto | active_subs_period | active_subs_eop | paid_subs_period | tnb_subs_period | charges_amt | charged_subs_amt | debt_charges_amt | debt_impact | charges_attempts | bsr  | revenue |        created_date        | churn_daily  | churn_daily_paid | paid_attempts_period | new_users
+-----------+--------+------------+------------------+----------+-------------+------------+------------+---------------+----------------+--------------+-----------+------------+----------------+------------+--------------------+-----------------+------------------+-----------------+-------------+------------------+------------------+-------------+------------------+------+---------+----------------------------+--------------+------------------+----------------------+-----------
+ 254639950 |      1 | 2020-02-03 | USSD             |        1 |       15.00 |        722 |         75 |               |                |              |           |            |                |            |                  1 |               1 |                1 |                 |             |                  |                0 |        0.00 |                  | 0.00 |         | 2020-02-04 08:57:38.963702 | 0.0000000000 |     0.0000000000 |                      |
+(1 строка)
+
+
+
+SELECT sum(revenue) from aggr_reports
+WHERE time_key = '2020-01-20'
+and service_id in (select id from services where partner_id=6);
+
+SELECT COUNT(*) from aggr_reports
+WHERE time_key = '2020-01-20'
+and service_id in (select id from services where partner_id=6);
+
+
+
+SELECT COUNT(*) FROM charges
+WHERE service_id in (select id from services where partner_id=6)
+AND charge_date::date = '2020-01-18';
+
+
+vas_stat_prod_db=> SELECT COUNT(*) from aggr_reports
+vas_stat_prod_db-> WHERE time_key = '2020-01-19'
+vas_stat_prod_db-> and service_id in (select id from services where partner_id=6);
+ count
+-------
+  1535
+(1 строка)
+
+vas_stat_prod_db=> SELECT COUNT(*) from aggr_reports
+vas_stat_prod_db-> WHERE time_key = '2020-01-20'
+vas_stat_prod_db-> and service_id in (select id from services where partner_id=6);
+ count
+-------
+     2
+(1 строка)
+
+vas_stat_prod_db=> SELECT COUNT(*) FROM charges
+vas_stat_prod_db-> WHERE service_id in (select id from services where partner_id=6)
+vas_stat_prod_db-> AND charge_date::date = '2020-01-19';
+ count
+--------
+ 515419
+(1 строка)
+
+vas_stat_prod_db=> SELECT COUNT(*) FROM charges
+vas_stat_prod_db-> WHERE service_id in (select id from services where partner_id=6)
+vas_stat_prod_db-> AND charge_date::date = '2020-01-20';
+ count
+--------
+ 948224
+(1 строка)
+
+
+SELECT aggr_total('2020-01-20 00:00:00', '2020-01-20 23:59:59', 6);
+
+DELETE FROM charges WHERE id IN (
+    SELECT COUNT(ch.id) FROM charges ch, charges ch1
+    WHERE ch.service_id in (select id from services where partner_id=6)
+    AND ch1.service_id in (select id from services where partner_id=6)
+    AND ch.service_id = ch1.service_id
+    AND ch.charge_date = ch1.charge_date
+    AND ch.amount = ch1.amount
+    AND ch.subscription_id = ch1.subscription_id
+    AND ch.id != ch1.id
+    AND ch.charge_date::date = '2020-01-20'
+    AND ch1.charge_date::date = '2020-01-20';
+)
+
+
+SELECT COUNT(ch.id) FROM
+    charges ch,
+    charges ch1
+WHERE ch.service_id in (select id from services where partner_id=6)
+   AND ch1.service_id in (select id from services where partner_id=6)
+   AND ch.service_id = ch1.service_id
+   AND ch.charge_date = ch1.charge_date
+   AND ch.amount = ch1.amount
+   AND ch.subscription_id = ch1.subscription_id
+   AND ch.id < ch1.id
+   AND ch.charge_date::date = '2020-01-20'
+   AND ch1.charge_date::date = '2020-01-20';
+
+
+SELECT COUNT(*) FROM charges
+WHERE charge_date::date = '2020-01-20'
+AND service_id in (select id from services where partner_id=6);
+
+
+SELECT COUNT(*) charges
+WHERE id IN
+    (SELECT id
+    FROM
+        (SELECT id,
+         ROW_NUMBER() OVER( PARTITION BY fruit ORDER BY  id ) AS row_num
+        FROM charges) t
+        WHERE t.row_num > 1 );
+
+
+DELETE FROM charges
+WHERE id IN
+    (SELECT id
+        FROM
+            (SELECT id,
+             ROW_NUMBER() OVER( PARTITION BY amount, subscription_id, service_id, charge_date ORDER BY  id ) AS row_num
+            FROM charges
+            WHERE charge_date::date = '2020-01-20' AND service_id in (select id from services where partner_id=6)) t
+        WHERE t.row_num > 1 );
+
+
+
+UPDATE subscriptions
+SET ordering_channel = transport_type1
+WHERE ordering_channel IS NULL
+AND transport_type1 IS NOT NULL
+AND created_date::date >= '2020-01-15';
+
+
+
+	"power" : 3,
+	"speed" : 3,
+	"sens" : 3,
+	"memory" : 3,
+	"dur" : 3,
+	"energy" : 3,
+	"gunless" : 1,
+
+
+SELECT sum(amount)
+FROM charges
+WHERE charge_date::date >= '2020-01-20'
+AND charge_date::date < '2020-01-24'
+AND charge_result = 0
+AND service_id IN (SELECT id FROM services WHERE partner_id = 6);
+     sum
+-------------
+ 32154551.00
+(1 строка)
+
+SELECT sum(charge_amt)
+FROM aggr_charges_parted
+WHERE date_key >= '2020-01-20'
+AND date_key < '2020-01-24'
+AND service_id IN (SELECT id FROM services WHERE partner_id = 6);
+     sum
+-------------
+ 32154551.00
+(1 строка)
+
+SELECT sum(revenue)
+FROM aggr_reports
+WHERE time_key >= '2020-01-20'
+AND time_key < '2020-01-24'
+AND service_id IN (SELECT id FROM services WHERE partner_id = 6);
+     sum
+-------------
+ 35119234.00
+(1 строка)
+
+
+
+SELECT COALESCE(sum(amount),0)
+FROM charges
+WHERE charge_date::date >= '2020-01-01'
+AND charge_date::date < '2020-02-01'
+AND charge_result = 0
+AND service_id IN (SELECT id FROM services WHERE partner_id = 6);
+
+
+
+
+
+
+vas_stat_prod_db=> SELECT sum(amount)
+vas_stat_prod_db-> FROM charges
+vas_stat_prod_db-> WHERE charge_date::date >= '2020-01-01'
+vas_stat_prod_db-> AND charge_date::date < '2020-02-01'
+vas_stat_prod_db-> AND charge_result = 0
+vas_stat_prod_db-> AND service_id IN (SELECT id FROM services WHERE partner_id = 6);
+     sum
+-------------
+ 31871073.00
+(1 строка)
+
+vas_stat_prod_db=> SELECT sum(charge_amt)
+vas_stat_prod_db-> FROM aggr_charges_parted
+vas_stat_prod_db-> WHERE date_key >= '2020-01-01'
+vas_stat_prod_db-> AND date_key < '2020-02-01'
+vas_stat_prod_db-> AND service_id IN (SELECT id FROM services WHERE partner_id = 6);
+     sum
+-------------
+ 31871052.00
+(1 строка)
+
+vas_stat_prod_db=> SELECT sum(revenue)
+vas_stat_prod_db-> FROM aggr_reports
+vas_stat_prod_db-> WHERE time_key >= '2020-01-01'
+vas_stat_prod_db-> AND time_key < '2020-02-01'
+vas_stat_prod_db-> AND service_id IN (SELECT id FROM services WHERE partner_id = 6);
+     sum
+-------------
+ 31870692.00
+(1 строка)
+
+
+
+
+
+
+
+CREATE OR REPLACE FUNCTION public.wh_threed_1() !!! to run !!!
+ RETURNS void
+ LANGUAGE plpgsql
+AS $function$
+DECLARE
+BEGIN
+  RAISE NOTICE 'aggr_charges3';
+  PERFORM aggr_charges('2020-01-20 00:00:00', '2020-01-23 23:59:59', 3);
+  RAISE NOTICE 'aggr_total3';
+  PERFORM aggr_total('2020-01-01 00:00:00', '2020-01-31 23:59:59', 3);
+  RAISE NOTICE 'aggr_total6';
+  PERFORM aggr_total('2020-01-01 00:00:00', '2020-01-31 23:59:59', 6);
+END;
+$function$
+;
+
+CREATE OR REPLACE FUNCTION public.wh_threed_2()
+ RETURNS void
+ LANGUAGE plpgsql
+AS $function$
+DECLARE
+BEGIN
+    RAISE NOTICE 'aggr_charges5';
+    PERFORM aggr_charges('2020-01-01 00:00:00', '2020-01-31 23:59:59', 5);
+    RAISE NOTICE 'aggr_charges7';
+    PERFORM aggr_charges('2020-01-01 00:00:00', '2020-01-31 23:59:59', 7);
+    RAISE NOTICE 'aggr_total5';
+    PERFORM aggr_total('2020-01-01 00:00:00', '2020-01-31 23:59:59', 5);
+    RAISE NOTICE 'aggr_total7';
+    PERFORM aggr_total('2020-01-01 00:00:00', '2020-01-31 23:59:59', 7);
+END;
+$function$
+;
+
+
+
+
+
+SELECT wh_test_case_1('2020-01-01 00:00:00', '2020-01-31 23:59:59', 6);
+
+
+
+DELETE FROM aggr_charges_parted WHERE date_key >= '2020-01-20' AND date_key <= '2020-01-23' AND service_id IN (SELECT id FROM services WHERE partner_id = 3);
+DELETE FROM aggr_reports WHERE time_key >= '2020-01-20' AND time_key <= '2020-01-23' AND service_id IN (SELECT id FROM services WHERE partner_id = 3);
+DELETE FROM aggr_charges_parted WHERE date_key >= '2020-01-20' AND date_key <= '2020-01-23' AND service_id IN (SELECT id FROM services WHERE partner_id = 6);
+DELETE FROM aggr_reports WHERE time_key >= '2020-01-20' AND time_key <= '2020-01-23' AND service_id IN (SELECT id FROM services WHERE partner_id = 6);
+
+select aggr_charges('2020-01-20 00:00:00', '2020-01-23 23:59:59', 6);
+select revenue('2020-01-20 00:00:00', '2020-01-23 23:59:59', 6);
+
+select aggr_charges('2020-01-20 00:00:00', '2020-01-23 23:59:59', 3);
+select revenue('2020-01-20 00:00:00', '2020-01-23 23:59:59', 3);
+
+select aggr_total('2020-01-20 00:00:00', '2020-01-23 23:59:59', 6);
+
+select aggr_charges('2020-01-20 00:00:00', '2020-01-23 23:59:59', 3);
+
+
+SELECT COUNT(*), time_key
+FROM aggr_reports
+WHERE time_key > '2020-01-01'
+GROUP BY time_key;
+
+SELECT sum(amount), charge_date::date as time_key
+FROM charges
+WHERE charge_date::date >= '2020-01-01'
+AND charge_date::date < '2020-02-01'
+AND charge_result = 0
+AND service_id IN (SELECT id FROM services WHERE partner_id = 7)
+GROUP BY time_key
+ORDER BY time_key ASC;
+
+
+
+

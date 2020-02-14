@@ -1,0 +1,490 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <style>
+        input {
+            border: 1px solid green;
+        }
+
+        body {
+            background-color: cadetblue;
+            margin: 0;
+            padding: 0;
+            color: #efd5a9;
+            width: 100%;
+            height: 100%;
+        }
+
+        #main {
+            width: 100%;
+            height: 100%;
+        }
+
+        #menu {
+            position: absolute;
+            top: 5px;
+            right: 5px;
+        }
+
+        #game_view {
+            margin: 5px;
+        }
+
+        #reflex {
+            width: 100%;
+            height: 100%;
+        }
+        .Loading {
+            position:fixed;
+            width:100%; height:100%;
+            top:0; left:0;
+            background: rgba(255,255,255,0.6);
+            z-index:9999;
+            transition: width 2s; -moz-transition: width 2s;/* Firefox 4 */ -webkit-transition: width 2s; /* Safari and Chrome */ -o-transition: width 2s; /* Opera */ }
+
+        .loadingImg {
+            position: absolute;
+            top: 50%; margin-top:-85px;
+            left:50%; margin-left:-360px;
+            width:700px; height:150px;
+            opacity: 1;
+            text-align: center;
+            padding: 10px;
+            background-color: #39343c;
+            border: 1px solid #d9a0e2;
+            overflow: auto;
+        }
+        .closeLoot {
+            position: absolute;
+            top: 34%; margin-top:-5px;
+            left:50%; margin-left:-10px;
+            z-index: 999999;
+        }
+        .env_item {
+            border: 1px solid #1d65c7;
+            margin-top: 5px;
+        }
+        .scan_info {
+            width: 800px;
+            height: 600px;
+            margin-left: 30%;
+            background-color: #0d2d2c;
+            border: 3px solid #0d5a58;
+            color: darkgoldenrod;
+            top: 70px;
+            position: absolute;
+            padding: 5px;
+        }
+        .eqiped {
+            cursor: pointer;
+        }
+        #rchat {
+            position: absolute;
+            bottom: 0px;
+        }
+        .dialog_option {
+            text-align: center;
+            border: 1px solid white;
+            margin-top: 10px;
+            cursor: pointer;
+            color: white;
+            width: 100%;
+        }
+        .u_fght {
+            border-radius: 50%;
+            border-color: navajowhite;
+            border-style: solid;
+            border-width: 1px;
+            width: 60%;
+            height: 80%;
+            text-align: center;
+            display: inline-block;
+        }
+        .enemy_fght {
+            border-radius: 50%;
+            border-color: #961826;
+            border-style: solid;
+            border-width: 1px;
+            width: 60%;
+            height: 80%;
+            text-align: center;
+            display: inline-block;
+            font-size: small;
+        }
+        #skills_div {
+            position: absolute;
+            margin-left: 89%;
+            top: 90px;
+            border: 1px solid black;
+            max-width: 200px;
+            max-height: 614px;
+            overflow: auto;
+            text-align: center;
+        }
+        #skills_div div {
+            display: inline-block;
+        }
+    </style>
+    <title>Robox</title>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.4.1/jquery.min.js"></script>
+</head>
+<body>
+<div id="main">
+    <div id="chat" style="display: none;"></div>
+    <input id="msg" type="text" style="display: none;">
+    <div id="enter_form_div" style="margin: 0 auto; width: 500px; margin-top: 10%;">
+        <h1 style="margin-left: 100px;">Robox</h1>
+        <form id="enter_form" onsubmit="event.preventDefault(); loginMe(event);">
+            <table cellpadding="1" cellspacing="1" border="1">
+                <tr>
+                    <td>Позывной</td>
+                    <td><input type="text" name="login" id="login"></td>
+                </tr>
+                <tr>
+                    <td>Проверочный код</td>
+                    <td><input type="password" name="pass" id="pass"></td>
+                </tr>
+                <tr>
+                    <td colspan="2" align="center">
+                        <button id="submit">Соединиться</button>
+                    </td>
+                </tr>
+            </table>
+        </form>
+    </div>
+
+    <div id='game_view' style="display: none;">
+        <h1 id="h1_welcome">Welcome, " + user_name + "!</h1>
+        <div id='menu'>
+            <button onclick='reflect_me();'>Reflection()</button>
+            <button onclick='purgen();'>Exit()</button>
+        </div>
+        <div id="game_screen">
+            <div id="sub_loc_info" style="width: 25%; max-width: 500px; overflow: auto;">
+                Вы обнаруживаете себя на кладбище разбитой техники...<br>
+                Кажется, что-то шевелится у входа...<br>
+                <button onclick="make_step(1);">Подойти</button>
+                <button onclick="scan();">Просканировать местность</button>
+            </div>
+            <div class="scan_info" id="scan_info"></div>
+            <div id="skills_div" style="display: none;"></div>
+        </div>
+        <div id="rchat" class="rchat">Chat</div>
+    </div>
+</div>
+
+<div style="display: none;" id="reflex">
+    <table border="1" width="100%">
+        <tr>
+            <td width="40%" valign="top" align="center">
+                <table border="1" width="100%">
+                    <tr>
+                        <td valign="top" align="center">Head
+                            <div id="head_div">Аллюминий (<span id="head_proc">50%</span>)</div>
+                        </td>
+                        <td valign="top" align="center">Arms
+                            <div id="arms_div">Аллюминий (<span id="arms_proc">50%</span>)</div>
+                        </td>
+                        <td valign="top" align="center">Body
+                            <div id="body_div">Аллюминий (<span id="body_proc">50%</span>)</div>
+                        </td>
+                        <td valign="top" align="center">Legs
+                            <div id="legs_div">Аллюминий (<span id="legs_proc">50%</span>)</div>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td valign="top" align="center">
+                            <div id="head_slot">()</div>
+                        </td>
+                        <td valign="top" align="center">
+                            <div id="arms_slot">()</div>
+                        </td>
+                        <td valign="top" align="center">
+                            <div id="body_slot">()</div>
+                        </td>
+                        <td valign="top" align="center">
+                            <div id="legs_slot">()</div>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td valign="top" align="center">
+                            <div id="w1_slot">[]</div>
+                        </td>
+                        <td valign="top" align="center">
+                            <div id="w2_slot">[]</div>
+                        </td>
+                        <td valign="top" align="center">
+                            <div id="w3_slot">[]</div>
+                        </td>
+                        <td valign="top" align="center">
+                            <div id="w4_slot">[]</div>
+                        </td>
+                    </tr>
+                </table>
+            </td>
+            <td width="20%" valign="top" align="center">
+                <div style="font-weight: bolder; border: 1px solid black; color: #ff6c33; font-size: 18px;">Inventory</div>
+                Coins: <span id="coins_span">0</span>
+                <div id="inv_div">
+
+                </div>
+            </td>
+            <td width="20%" valign="top" align="center">
+                <div style="font-weight: bolder; border: 1px solid black; color: #ff6c33; font-size: 18px;">Params</div>
+                <div id="params_div">
+                    Уровень: <span id="lvl_span">1</span> (exp: <span id="exp_span">0</span>)
+                    <div style="font-weight: bolder; border: 1px solid black; color: red;">Общие <span id="com_parms_span"></span></div>
+                    <table>
+                        <tr>
+                            <td>Мощность:</td>
+                            <td></td>
+                            <td id="pwr_td">3</td>
+                            <td></td>
+                        </tr>
+                        <tr>
+                            <td>Скорость:</td>
+                            <td></td>
+                            <td id="spd_td">3</td>
+                            <td></td>
+                        </tr>
+                        <tr>
+                            <td>Сенсорика:</td>
+                            <td></td>
+                            <td id="sens_td">3</td>
+                            <td></td>
+                        </tr>
+                        <tr>
+                            <td>Память:</td>
+                            <td></td>
+                            <td id="mmr_td">3</td>
+                            <td></td>
+                        </tr>
+                        <tr>
+                            <td>Прочность:</td>
+                            <td></td>
+                            <td id="dur_td">3</td>
+                            <td></td>
+                        </tr>
+                        <tr>
+                            <td>Энергозапас:</td>
+                            <td></td>
+                            <td id="enrgy_td">3</td>
+                            <td></td>
+                        </tr>
+                    </table>
+                    <div style="font-weight: bolder; border: 1px solid black; color: red;">Мастерство <span id="mastrs_span"></span></div>
+                    <table>
+                        <tr>
+                            <td>Безоружный</td>
+                            <td></td>
+                            <td id="gnls_td">1</td>
+                            <td></td>
+                        </tr>
+                        <tr>
+                            <td>Пистолеты</td>
+                            <td></td>
+                            <td id="pstl_td">0</td>
+                            <td></td>
+                        </tr>
+                        <tr>
+                            <td>Винтовки</td>
+                            <td></td>
+                            <td id="ar_td">0</td>
+                            <td></td>
+                        </tr>
+                        <tr>
+                            <td>Тяжёлое</td>
+                            <td></td>
+                            <td id="hvy_td">0</td>
+                            <td></td>
+                        </tr>
+                        <tr>
+                            <td>Энергетическое</td>
+                            <td></td>
+                            <td id="nrg_td">0</td>
+                            <td></td>
+                        </tr>
+                        <tr>
+                            <td>Техногенное</td>
+                            <td></td>
+                            <td id="tch_td">0</td>
+                            <td></td>
+                        </tr>
+                    </table>
+                    <div style="font-weight: bolder; border: 1px solid black; color: red;">Особенности</div>
+                    <table>
+                        <tr>
+                            <td>Костыльмэн</td>
+                            <td></td>
+                            <td><button>+</button></td>
+                        </tr>
+                        <tr>
+                            <td>Технарь-слесарь</td>
+                            <td></td>
+                            <td><button>+</button></td>
+                        </tr>
+                        <tr>
+                            <td>Кодер</td>
+                            <td></td>
+                            <td><button>+</button></td>
+                        </tr>
+                        <tr>
+                            <td>Нейролингвист</td>
+                            <td></td>
+                            <td><button>+</button></td>
+                        </tr>
+                        <tr>
+                            <td>Памятник</td>
+                            <td></td>
+                            <td><button>+</button></td>
+                        </tr>
+                        <tr>
+                            <td>Изгой</td>
+                            <td></td>
+                            <td><button>+</button></td>
+                        </tr>
+                    </table>
+                </div>
+            </td>
+            <td width="20%" valign="top" align="center">
+                <div style="font-weight: bolder; border: 1px solid black; color: #ff6c33; font-size: 18px;">Skills</div>
+            </td>
+        </tr>
+    </table>
+</div>
+<div id="loot_items" style="position: absolute; left: 0; top: 0; width: 100%; height: 100%; display: none; ">
+    <div id="confirmDialogSingle" class="Loading" runat="server" visible="false">
+        <div class="closeLoot"><button onclick="document.getElementById('loot_items').style.display='none';">Close()</button></div>
+        <div id="lootBox" class="loadingImg">
+            Empty
+        </div>
+    </div>
+</div>
+<div id="setka_div" style="display: none;">
+    <table class="setka" border="1" cellspacing="0" cellpadding="0" id="setka" width="100%" height="100%" style="height: 100%; width: 100%; border-color: #e89219">
+        <tr>
+            <td width="10%" height="10%" id="s_1_1" align="center" valign="middle"></td>
+            <td width="10%" height="10%" id="s_1_2" align="center" valign="middle"></td>
+            <td width="10%" height="10%" id="s_1_3" align="center" valign="middle"></td>
+            <td width="10%" height="10%" id="s_1_4" align="center" valign="middle"></td>
+            <td width="10%" height="10%" id="s_1_5" align="center" valign="middle"></td>
+            <td width="10%" height="10%" id="s_1_6" align="center" valign="middle"></td>
+            <td width="10%" height="10%" id="s_1_7" align="center" valign="middle"></td>
+            <td width="10%" height="10%" id="s_1_8" align="center" valign="middle"></td>
+            <td width="10%" height="10%" id="s_1_9" align="center" valign="middle"></td>
+            <td width="10%" height="10%" id="s_1_10" align="center" valign="middle"></td>
+        </tr>
+        <tr>
+            <td width="10%" height="10%" id="s_2_1" align="center" valign="middle"></td>
+            <td width="10%" height="10%" id="s_2_2" align="center" valign="middle"></td>
+            <td width="10%" height="10%" id="s_2_3" align="center" valign="middle"></td>
+            <td width="10%" height="10%" id="s_2_4" align="center" valign="middle"></td>
+            <td width="10%" height="10%" id="s_2_5" align="center" valign="middle"></td>
+            <td width="10%" height="10%" id="s_2_6" align="center" valign="middle"></td>
+            <td width="10%" height="10%" id="s_2_7" align="center" valign="middle"></td>
+            <td width="10%" height="10%" id="s_2_8" align="center" valign="middle"></td>
+            <td width="10%" height="10%" id="s_2_9" align="center" valign="middle"></td>
+            <td width="10%" height="10%" id="s_2_10" align="center" valign="middle"></td>
+        </tr>
+        <tr>
+            <td width="10%" height="10%" id="s_3_1" align="center" valign="middle"></td>
+            <td width="10%" height="10%" id="s_3_2" align="center" valign="middle"></td>
+            <td width="10%" height="10%" id="s_3_3" align="center" valign="middle"></td>
+            <td width="10%" height="10%" id="s_3_4" align="center" valign="middle"></td>
+            <td width="10%" height="10%" id="s_3_5" align="center" valign="middle"></td>
+            <td width="10%" height="10%" id="s_3_6" align="center" valign="middle"></td>
+            <td width="10%" height="10%" id="s_3_7" align="center" valign="middle"></td>
+            <td width="10%" height="10%" id="s_3_8" align="center" valign="middle"></td>
+            <td width="10%" height="10%" id="s_3_9" align="center" valign="middle"></td>
+            <td width="10%" height="10%" id="s_3_10" align="center" valign="middle"></td>
+        </tr>
+        <tr>
+            <td width="10%" height="10%" id="s_4_1" align="center" valign="middle"></td>
+            <td width="10%" height="10%" id="s_4_2" align="center" valign="middle"></td>
+            <td width="10%" height="10%" id="s_4_3" align="center" valign="middle"></td>
+            <td width="10%" height="10%" id="s_4_4" align="center" valign="middle"></td>
+            <td width="10%" height="10%" id="s_4_5" align="center" valign="middle"></td>
+            <td width="10%" height="10%" id="s_4_6" align="center" valign="middle"></td>
+            <td width="10%" height="10%" id="s_4_7" align="center" valign="middle"></td>
+            <td width="10%" height="10%" id="s_4_8" align="center" valign="middle"></td>
+            <td width="10%" height="10%" id="s_4_9" align="center" valign="middle"></td>
+            <td width="10%" height="10%" id="s_4_10" align="center" valign="middle"></td>
+        </tr>
+        <tr>
+            <td width="10%" height="10%" id="s_5_1" align="center" valign="middle"></td>
+            <td width="10%" height="10%" id="s_5_2" align="center" valign="middle"></td>
+            <td width="10%" height="10%" id="s_5_3" align="center" valign="middle"></td>
+            <td width="10%" height="10%" id="s_5_4" align="center" valign="middle"></td>
+            <td width="10%" height="10%" id="s_5_5" align="center" valign="middle"></td>
+            <td width="10%" height="10%" id="s_5_6" align="center" valign="middle"></td>
+            <td width="10%" height="10%" id="s_5_7" align="center" valign="middle"></td>
+            <td width="10%" height="10%" id="s_5_8" align="center" valign="middle"></td>
+            <td width="10%" height="10%" id="s_5_9" align="center" valign="middle"></td>
+            <td width="10%" height="10%" id="s_5_10" align="center" valign="middle"></td>
+        </tr>
+        <tr>
+            <td width="10%" height="10%" id="s_6_1" align="center" valign="middle"></td>
+            <td width="10%" height="10%" id="s_6_2" align="center" valign="middle"></td>
+            <td width="10%" height="10%" id="s_6_3" align="center" valign="middle"></td>
+            <td width="10%" height="10%" id="s_6_4" align="center" valign="middle"></td>
+            <td width="10%" height="10%" id="s_6_5" align="center" valign="middle"></td>
+            <td width="10%" height="10%" id="s_6_6" align="center" valign="middle"></td>
+            <td width="10%" height="10%" id="s_6_7" align="center" valign="middle"></td>
+            <td width="10%" height="10%" id="s_6_8" align="center" valign="middle"></td>
+            <td width="10%" height="10%" id="s_6_9" align="center" valign="middle"></td>
+            <td width="10%" height="10%" id="s_6_10" align="center" valign="middle"></td>
+        </tr>
+        <tr>
+            <td width="10%" height="10%" id="s_7_1" align="center" valign="middle"></td>
+            <td width="10%" height="10%" id="s_7_2" align="center" valign="middle"></td>
+            <td width="10%" height="10%" id="s_7_3" align="center" valign="middle"></td>
+            <td width="10%" height="10%" id="s_7_4" align="center" valign="middle"></td>
+            <td width="10%" height="10%" id="s_7_5" align="center" valign="middle"></td>
+            <td width="10%" height="10%" id="s_7_6" align="center" valign="middle"></td>
+            <td width="10%" height="10%" id="s_7_7" align="center" valign="middle"></td>
+            <td width="10%" height="10%" id="s_7_8" align="center" valign="middle"></td>
+            <td width="10%" height="10%" id="s_7_9" align="center" valign="middle"></td>
+            <td width="10%" height="10%" id="s_7_10" align="center" valign="middle"></td>
+        </tr>
+        <tr>
+            <td width="10%" height="10%" id="s_8_1" align="center" valign="middle"></td>
+            <td width="10%" height="10%" id="s_8_2" align="center" valign="middle"></td>
+            <td width="10%" height="10%" id="s_8_3" align="center" valign="middle"></td>
+            <td width="10%" height="10%" id="s_8_4" align="center" valign="middle"></td>
+            <td width="10%" height="10%" id="s_8_5" align="center" valign="middle"></td>
+            <td width="10%" height="10%" id="s_8_6" align="center" valign="middle"></td>
+            <td width="10%" height="10%" id="s_8_7" align="center" valign="middle"></td>
+            <td width="10%" height="10%" id="s_8_8" align="center" valign="middle"></td>
+            <td width="10%" height="10%" id="s_8_9" align="center" valign="middle"></td>
+            <td width="10%" height="10%" id="s_8_10" align="center" valign="middle"></td>
+        </tr>
+        <tr>
+            <td width="10%" height="10%" id="s_9_1" align="center" valign="middle"></td>
+            <td width="10%" height="10%" id="s_9_2" align="center" valign="middle"></td>
+            <td width="10%" height="10%" id="s_9_3" align="center" valign="middle"></td>
+            <td width="10%" height="10%" id="s_9_4" align="center" valign="middle"></td>
+            <td width="10%" height="10%" id="s_9_5" align="center" valign="middle"></td>
+            <td width="10%" height="10%" id="s_9_6" align="center" valign="middle"></td>
+            <td width="10%" height="10%" id="s_9_7" align="center" valign="middle"></td>
+            <td width="10%" height="10%" id="s_9_8" align="center" valign="middle"></td>
+            <td width="10%" height="10%" id="s_9_9" align="center" valign="middle"></td>
+            <td width="10%" height="10%" id="s_9_10" align="center" valign="middle"></td>
+        </tr>
+        <tr>
+            <td width="10%" height="10%" id="s_10_1" align="center" valign="middle"></td>
+            <td width="10%" height="10%" id="s_10_2" align="center" valign="middle"></td>
+            <td width="10%" height="10%" id="s_10_3" align="center" valign="middle"></td>
+            <td width="10%" height="10%" id="s_10_4" align="center" valign="middle"></td>
+            <td width="10%" height="10%" id="s_10_5" align="center" valign="middle"></td>
+            <td width="10%" height="10%" id="s_10_6" align="center" valign="middle"></td>
+            <td width="10%" height="10%" id="s_10_7" align="center" valign="middle"></td>
+            <td width="10%" height="10%" id="s_10_8" align="center" valign="middle"></td>
+            <td width="10%" height="10%" id="s_10_9" align="center" valign="middle"></td>
+            <td width="10%" height="10%" id="s_10_10" align="center" valign="middle"></td>
+        </tr>
+    </table>
+</div>
+<script src="rbx.js"></script>
+</body>
+</html>
