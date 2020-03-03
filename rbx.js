@@ -12,19 +12,34 @@ let opened = 0;
 let loca = 0;
 let tmp_state = '';
 let last_div_loot_id = -1;
-let fid = 0;
+let fid = 0, fstep = 0, usingskill = 0;
 let token = '';
-let ap_avail = 0;
+let ap_avail = 0, aen = -1;
 let uchrd = '';
 let lastGoid, lastGodist;
 let uskills = [], e_ap = [];
 let fenemies, Uuzer, echrds, ehp, uhp, all_hp;
-
+const skills = {
+    punch: {
+        ap:2,
+        name: "punch",
+        range: 0,
+        type: 'gunless'
+    },
+    kick: {
+        ap:2,
+        name: "kick",
+        range: 0,
+        type: 'gunless'
+    }
+};
 //msg.focus();
 
 //console.log(document.cookie);
 
-
+const delay = ms => {
+    return new Promise(r => setTimeout(() => r(), ms))
+};
 
 const writeLine = text => {
     const line = document.createElement('div');
@@ -90,6 +105,10 @@ socket.onmessage = event => {
             restore_fight(match[2]);
         } else if (match[1] == 'checkmeplz') {
             checkMePlz(match[2]);
+        } else if (match[1] == 'fighting') {
+            fighting(match[2]);
+        } else if (match[1] == 'enemy_strikes') {
+            enemy_striked(match[2]);
         } else {
             console.log(msg);
             alert('WTF???');
@@ -424,6 +443,7 @@ function fight(data) {
     ehp = fght.ehp;
     uhp = fght.uhp;
     all_hp = (parseInt(Uuzer.lvl) * parseInt(Uuzer.dur) * 5);
+    if (!fstep) fstep = 1;
 
     document.getElementById('skills_div').style.display = '';
     let setka = document.getElementById('setka_div').innerHTML;
@@ -439,13 +459,13 @@ function fight(data) {
 
 
     for (let i in fenemies) {
-        document.getElementById('s_' + echrds[i]).innerHTML = '<div class="enemy_fght" id="enemy_'+i+'">'
+        document.getElementById('s_' + echrds[i]).innerHTML = '<div onclick="faya('+i+');" class="enemy_fght" id="enemy_'+i+'">'
             + fenemies[i].name + ' (' + ehp[i] + ' hp)</div>';
         e_ap.push(fenemies[i].energy);
     }
 
     document.getElementById('skills_div').innerHTML = '<div>' +
-        '<button onclick="endTurn();" style="background-color: #961826; color: #d1651d; width: 100%;">End Turn</button>' +
+        '<button id="endturnbutton" onclick="endTurn();" style="background-color: #961826; color: #d1651d; width: 100%;">End Turn</button>' +
         '</div>'+
     '<br><div>AP: <span id="ap_avail">' + ap_avail + '</span> of <span id="all_ap">' + Uuzer.energy + '</span>' +
         '</div><br>' +
@@ -454,7 +474,7 @@ function fight(data) {
 
 
     for (let i in uskills) {
-        document.getElementById('skills_div').innerHTML += '<div><button onclick="useSkill(\''+uskills[i]+'\');">'+uskills[i]+'( AP)</button></div>';
+        document.getElementById('skills_div').innerHTML += '<div><button onclick="useSkill(\''+uskills[i]+'\');">'+uskills[i]+'('+skills[uskills[i]]['ap']+'AP)</button></div>';
     }
 
 
@@ -462,47 +482,69 @@ function fight(data) {
     console.log(uchrd);
 
     $(".setka td").hover(
-        function(){
-            //console.log("this id = " + $(this).attr('id'));
-            let uchrd2 = uchrd.split("_");
-            if ($(this).attr('id') == 's_' + uchrd) {
-                return;
-            }
-            for (i in fenemies) {
-                if ( $(this).attr('id') == 's_'+ echrds[i]) {
+        function() {
+            if (!usingskill) {
+                //console.log("this id = " + $(this).attr('id'));
+                let uchrd2 = uchrd.split("_");
+                if ($(this).attr('id') == 's_' + uchrd) {
                     return;
                 }
-            }
-            let chrd = $(this).attr('id').substr(2).split("_");
-            //console.log(chrd);
-            let dist = 0;
-            let dist1 = Math.abs(uchrd2[0] - chrd[0]);
-            let dist2 = Math.abs(uchrd2[1] - chrd[1]);
-            if (dist1 > dist2) {
-                dist = dist1;
-            } else {
-                dist = dist2;
-            }
-            dist = Math.ceil(dist / parseInt(Uuzer.speed));
-            //console.log("dist = " + dist);
-            if (dist <= ap_avail) {
-                $(this).css('background-color', 'green');
-                $(this).append($("<span>" + dist + " AP</span>"));
-                let idid = $(this).attr('id');
-                $(this).click(function(){
-                    return goF(idid, dist);
-                });
-            } else {
-                $(this).css('background-color', '#961826');
-                $(this).append($("<span>" + dist + " AP</span>"));
-                $(this).click(function(){
-                    return;
-                });
+                for (i in fenemies) {
+                    if ($(this).attr('id') == 's_' + echrds[i]) {
+                        return;
+                    }
+                }
+                let chrd = $(this).attr('id').substr(2).split("_");
+                //console.log(chrd);
+                let dist = 0;
+                let dist1 = Math.abs(uchrd2[0] - chrd[0]);
+                let dist2 = Math.abs(uchrd2[1] - chrd[1]);
+                if (dist1 > dist2) {
+                    dist = dist1;
+                } else {
+                    dist = dist2;
+                }
+                dist = Math.ceil(dist / parseInt(Uuzer.speed));
+                //console.log("dist = " + dist);
+                if (dist <= ap_avail) {
+                    $(this).css('background-color', 'green');
+                    $(this).append($("<span>" + dist + " AP</span>"));
+                    let idid = $(this).attr('id');
+                    $(this).click(function () {
+                        if (!usingskill) return goF(idid, dist);
+                    });
+                } else {
+                    $(this).css('background-color', '#961826');
+                    $(this).append($("<span>" + dist + " AP</span>"));
+                    $(this).click(function () {
+                        return;
+                    });
+                }
+            } else if (usingskill['range'] == 0) {
+                //console.log(usingskill);
+                //console.log(uchrd);
+                let uchrdtmp = uchrd.split("_");
+                for (let i in fenemies) {
+                    let enmychrdtmp = echrds[i].split("_");
+                    let xdst = Math.abs(enmychrdtmp[0] - uchrdtmp[0]);
+                    let ydst = Math.abs(enmychrdtmp[1] - uchrdtmp[1]);
+                    //console.log("dst: " + xdst + "," + ydst);
+                    if ($(this).attr('id') == 's_' + echrds[i] && xdst < 2 && ydst < 2) {
+                        $(this).css('background-color', 'green');
+                        //$(this).click(faya(fenemies[i]));
+                        //$("#s_" + echrds[i]).click(faya(fenemies[i]));
+                    }
+                }
             }
         },
-        function(){
-            $(this).css('background-color', '#0d2d2c');
-            $( this ).find( "span" ).last().remove();
+        function() {
+            if (!usingskill) {
+                $(this).css('background-color', '#0d2d2c');
+                $(this).find("span").last().remove();
+            } else {
+                //$(this).click();
+                $(this).css('background-color', '#0d2d2c');
+            }
         }
     );
 }
@@ -510,20 +552,22 @@ function fight(data) {
 function restore_fight(data) {
     console.log("Restoring fight...");
     let resp = JSON.parse(data);
+    loca = parseInt(resp.loca);
     console.log(resp);
     document.getElementById('h1_welcome').innerText = 'Location: ' + resp.loca.title;
-
     //TODO restore log
     for (let i in resp.hstry) {
         document.getElementById('sub_loc_info').innerHTML += "<p>[" + (new Date(resp.hstry[i]['dati'])).getDate() + "]:"
             + user_name + " " + resp.hstry[i]['doing'] + "</p>";
+        fstep = parseInt(resp.hstry[i]['step']);
     }
-
     fight(JSON.stringify(resp.fight));
 }
 
 function goF(id, dist) {
     if (id == lastGoid && dist == lastGodist) {
+        return;
+    } else if (ap_avail < 1) {
         return;
     }
     console.log("goF id = " + id + " dist = " + dist + " uchd = " + uchrd + " fid = " + fid);
@@ -538,37 +582,62 @@ function goF(id, dist) {
     lastGoid = id;
     lastGodist = dist;
     document.getElementById('sub_loc_info').innerHTML += "<p>[" + (new Date).getDate() + "]:" + user_name + " went to " + id + "</p>";
-    socket.send("act=figthstat*|*datka=" + JSON.stringify({doing: "walk", ap_avail: ap_avail, uchrd: uchrd, fid: fid, login: user_name}));
+    fstep++;
+    socket.send("act=figthstat*|*datka=" + JSON.stringify({doing: "walk", step: fstep, ap_avail: ap_avail, uchrd: uchrd, fid: fid, login: user_name}));
 }
 
 //TODO save enemy state, and reset AP
 
 function endTurn() {
+    $("#endturnbutton").css('visibility', 'hidden');
+    let en_move = false;
+    let en_attack = false;
     for (let i in fenemies) {
-        for (let j = 0; j < parseInt(e_ap[i]); j++) {
-            if (parseInt(e_ap[i]) > 1) {
-                if (can_e_attack(i)) {
-                    eattack(i);
-                } else {
-                    emove(i);
-                }
+        aen = i;
+        while(e_ap[i] > 0) {
+            if (can_e_attack(i)) {
+                eattack(i);
+            } else if(can_e_move(i)) {
+                emove(i);
+                //fstep++;
+                //console.log("SENDING echrds = " + echrds + " step = " + fstep);
+                //socket.send("act=figthstat*|*datka=" + JSON.stringify({fid:fid, echrds: echrds, doing: "enemy_walk"}));
+            } else {
+                e_ap[i] = 0;
             }
+        }
+    }
+    ap_avail = Uuzer.energy;
+    fstep++;
+    for (let i in fenemies) {
+        e_ap[i] = parseInt(fenemies[i].energy);
+    }
+    socket.send("act=figthstat*|*datka=" + JSON.stringify({fid:fid, ap_avail: ap_avail, echrds: echrds, step: fstep}));
+    $("#ap_avail").text(ap_avail);
+    $("#endturnbutton").css('visibility', 'visible');
+
+}
+
+function can_e_attack(en) {
+    let machrd = uchrd.split("_");
+    let ech = echrds[en].split("_");
+    if (fenemies[en]['gunless'] == 1) {
+        if (Math.abs(machrd[0] - ech[0]) < 2 && Math.abs(machrd[1] - ech[1]) < 2 && e_ap[en] > 1) {
+            return true;
+        } else {
+            return false;
         }
     }
 }
 
-function can_e_attack(en) {
-    console.log('enmy:');
-    console.log(echrds[en]);
-    console.log(fenemies[en]);
+function can_e_move(en) {
     let machrd = uchrd.split("_");
     let ech = echrds[en].split("_");
-    console.log(machrd, ech);
     if (fenemies[en]['gunless'] == 1) {
         if (Math.abs(machrd[0] - ech[0]) < 2 && Math.abs(machrd[1] - ech[1]) < 2) {
-            return true;
-        } else {
             return false;
+        } else {
+            return true;
         }
     }
 }
@@ -577,6 +646,10 @@ function emove(en) {
     console.log('enemy goes ....');
     let machrd = uchrd.split("_");
     let ech = echrds[en].split("_");
+    machrd[0] = parseInt(machrd[0]);
+    machrd[1] = parseInt(machrd[1]);
+    ech[0] = parseInt(ech[0]);
+    ech[1] = parseInt(ech[1]);
     let togo = '';
     let steps_avail = parseInt(fenemies[en]['speed']);
     let x_range = Math.abs(machrd[0] - ech[0]);
@@ -607,13 +680,136 @@ function emove(en) {
     }
     console.log("mob goes 2 ", nextsetp);
     ech[en] = nextsetp;
+    e_ap[en] = e_ap[en] - 1;
     let enenene = document.getElementById('s_'+echrds[en]).innerHTML;
     document.getElementById('s_'+echrds[en]).innerHTML = '';
     document.getElementById('s_' + nextsetp[0] + '_' + nextsetp[1]).innerHTML = enenene;
     echrds[en] = nextsetp[0] + '_' + nextsetp[1];
-
 }
 
 function eattack(en) {
-    console.log('enemy attacks ....');
+    fstep++;
+    e_ap[en] = e_ap[en] - 2;
+    socket.send("act=enemy_strikes*|*datka=" + JSON.stringify({fid:fid, step: fstep, doing: "enemy_strikes", enemy: en}));
+}
+
+function useSkill(skl) {
+    if (usingskill == skills[skl]) {
+        return;
+    }
+    usingskill = skills[skl];
+    const cncl = '<button id="cncl1" onclick="cnclskil();">cancel()</button>';
+    console.log("Uzing " + skl);
+    $("#setka").css('cursor','crosshair');
+    $("#skills_div").append(cncl);
+}
+
+function cnclskil() {
+    usingskill = 0;
+    $("#setka").css('cursor','default');
+    $("#cncl1").remove();
+}
+
+function faya(fenem) {
+    if (!usingskill) {
+        return;
+    } else if (ap_avail < 2) {
+        usingskill = 0;
+        $("#setka").css('cursor','default');
+        $("#cncl1").remove();
+    } else if (usingskill['range'] == 0) {
+        aen = fenem;
+        console.log("attacking" + fenem);
+        let uchrdtmp = uchrd.split("_");
+        let enmychrdtmp = echrds[fenem].split("_");
+        let xdst = Math.abs(enmychrdtmp[0] - uchrdtmp[0]);
+        let ydst = Math.abs(enmychrdtmp[1] - uchrdtmp[1]);
+        console.log("dst: : " + xdst + "_" + ydst);
+        if (xdst < 2 && ydst < 2) {
+            //console.log("Uzer:");
+            //console.log(Uuzer);
+            let chnc = Math.ceil((parseInt(Uuzer[usingskill['type']])*100) / 5);
+            document.getElementById('lootBox').innerHTML = '<table class="fms_t">' +
+                '<tr><td class="fms" onclick="ydar('+fenem+',1)">Left arm(' + chnc + '%)</td>' +
+                '<td class="fms" onclick="ydar('+fenem+',2)">Head(' + chnc + '%)</td>' +
+                '<td onclick="ydar('+fenem+',3)" class="fms">Right arm(' + chnc + '%)</td></tr>'+
+                '<tr><td class="fms" onclick="ydar('+fenem+',4)">Left leg(' + chnc + '%)</td>' +
+                '<td class="fms" onclick="ydar('+fenem+',5)">Body(' + (chnc+50) + '%)</td>' +
+                '<td onclick="ydar('+fenem+',6)" class="fms">Right leg(' + chnc + '%)</td></tr>'+
+                '</table>';
+            document.getElementById('loot_items').style.display = '';
+            //console.log("BANG! loot_items");
+        } else {
+            return;
+        }
+    }
+}
+
+function ydar(en,ch) {
+    aen = en;
+    if (!usingskill) {
+        return;
+    } else {
+        socket.send("act=ydar*|*datka=" + JSON.stringify({fid: fid, lgn: user_name, enemy: en, yz: ch, skl: usingskill['name']}));
+    }
+}
+
+function fighting(data) {
+    //alert("lolz...");
+    let datka = JSON.parse(data);
+    console.log("fighting: data:");
+    console.log(datka);
+    document.getElementById('lootBox').innerHTML = 'Empty';
+    document.getElementById('loot_items').style.display = 'none';
+    ap_avail = parseInt(datka.ap_avail);
+    $("#ap_avail").text(ap_avail);
+
+    console.log("aen = " + aen);
+    let tmp = $("#enemy_" + aen).html();
+    console.log("enemy text = " + tmp);
+    tmp = tmp.replace(/(\d+) hp/is, datka.ehp[aen] + ' hp');
+    console.log("after replace = " + tmp);
+    $("#enemy_" + aen).html(tmp);
+    if (!datka.suc) {
+        alert("U missed");
+    } else {
+        alert("U hitted enemy with " + datka.udmg + ' dmg! Enemies hp now: ' + datka['ehp'][aen]);
+    }
+    if (typeof datka.ended !== 'undefined') {
+        endfight();
+    }
+}
+
+function enemy_striked(data) {
+    let datka = JSON.parse(data);
+    if (!datka.suc) {
+        alert("Enemy missed");
+    } else {
+        uhp = uhp - parseInt(datka.edmg);
+        document.getElementById('hp_avail').innerText = uhp;
+        let tmp = $("#u").text();
+        console.log("u text = " + tmp);
+        tmp = tmp.replace(/[\d+]hp/ig, datka.ehp[aen]+'hp');
+        console.log("after replace = " + tmp);
+        $("#u").text(tmp);
+        alert("Enemy hitted U with " + datka.udmg + ' dmg! Ur hp now: ' + uhp);
+    }
+    if (uhp < 1) {
+        endfight();
+    }
+}
+
+function endfight() {
+    if (uhp > 0) {
+        document.getElementById('lootBox').innerHTML = 'Empty';
+        document.getElementById('loot_items').style.display = 'none';
+        $("#enemy_0").remove();
+        $("#enemy_" + aen).remove();
+        socket.send('act=make_step*|*loc=' + loca + "*|*user=" + user_name);
+        alert("U WIN!");
+    }
+    else {
+        alert("U Lose...");
+        location.reload();
+    }
 }

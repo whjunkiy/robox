@@ -111,8 +111,16 @@ ws.on('request', req => {
     connection.on('message', message => {
         const dataName = message.type + 'Data';
         const data = message[dataName];
-
-        pasreMsg(data, clients[clid]);
+        //console.log("clients", clients);
+        //console.log("con rem addr: ", connection.remoteAddress);
+        let cid = -1;
+        for (let i in clients) {
+            if (clients[i] == connection) {
+                cid = i;
+            }
+        }
+        if (cid > -1) pasreMsg(data, clients[cid]);
+        else console.log("WTF???");
         /*
         console.dir(message);
         console.log('Received: ' + data);
@@ -129,6 +137,12 @@ ws.on('request', req => {
     connection.on('close', (reasonCode, description) => {
         console.log('Disconnected ' + connection.remoteAddress);
         console.dir({reasonCode, description});
+        for (let i in clients) {
+            if (clients[i] == connection.remoteAddress) {
+                clients.splice(i, 1);
+            }
+        }
+        //clients.splice();
     });
 
 });
@@ -184,6 +198,10 @@ function pasreMsg(data, us) {
         check_me_plz(match[1][2], match[2][2], us);
     } else if (match[0][2] == 'figthstat') {
         figthstat(match[1][2], us);
+    } else if (match[0][2] == 'ydar') {
+        ydar(match[1][2], us);
+    } else if (match[0][2] == 'enemy_strikes') {
+        enemy_strikes(match[1][2], us);
     } else {
         console.log("UNKNOWN query:");
         console.log(data);
@@ -585,55 +603,73 @@ function makeStep(loca, usr, us, p) {
     } else if (p == 2) {
         if (loca.id == 1) {
             if (usr.loca == 0 || usr.loca == 2 || usr.loca == 1) {
+                let mob_still_here = 1;
                 // db.mobs.insertOne({id:1, loca: 1, lvl: 1, name: 'RoboDog RGF-4', info: 'Робо-собака: Устаревшая модель охранных систем, созданных ещё людьми...', quality: 1});
                 // db.locas.updateOne({id:1}, {$set: user_killed_mobs:{}})
                 // db.locas.insertOne({id: 0 , title: "RoboGraveYard"});
-                mobs.find({loca: loca.id}).toArray(function(err, docs) {
-                    //TODO check, if mobs still here...
-                    if (err) {
-                        console.log("error");
-                        console.log(err);
-                        us.send("error");
-                        return;
+                if (typeof usr.mobkilled != 'undefined') {
+                    if (usr.mobkilled.indexOf(1) != -1) {
+                        mob_still_here = 0;
                     }
-                    let mob_names = [];
-                    let mobs_info = [];
-                    let mobs_pwr = 0;
-                    for (let i in docs) {
-                        mob_names.push(docs[i]['name']);
-                        mobs_info.push(docs[i]['info']);
-                        mobs_pwr += docs[i]['lvl'] * docs[i]['quality'];
-                    }
-                    let info = 'Сканер распознал объекты: ' + mob_names.join(',') + '... <br>';
-                    info += mobs_info.join('...<br>');
-                    info += '<br>Уровень опасности: ' + mobs_pwr + '...<br>';
-                    let dialog = '<div id="inr_txt">Собака смотрит на вас с недоверием... <br> Она явно входит в боевой режим...<br> Варианты действия: </div>';
-                    dialog += '<div class="dialog_option" id="dlg_1" onclick="Attack();">Атаковать</div>';
-                    let flag = false;
-                    for (let i in usr.stuff) {
-                        if (usr.stuff[i] == 'stick') {
-                            flag = true;
-                            dialog += '<div class="dialog_option" id="dlg_2" onclick="dialoger(0);">Кинуть палку</div>';
-                        }
-                    }
-                    if (!flag) {
-                        for (let i in usr.equiped) {
-                            if (usr.equiped[i]['item'] == 'stick') {
-                                dialog += '<div class="dialog_option" id="dlg_2" onclick="dialoger(0);">Кинуть палку</div>';
-                            }
-                        }
-                    }
-                    dialog += '<div class="dialog_option" id="dlg_3" onclick="make_step(0);">Отступить</div>';
-                    users.updateOne({login: usr.login},{$set: {loca: loca.id}}, function (err, tt) {
+                }
+                if (mob_still_here) {
+                    mobs.find({loca: loca.id}).toArray(function (err, docs) {
+                        //TODO check, if mobs still here...
                         if (err) {
                             console.log("error");
                             console.log(err);
                             us.send("error");
                             return;
                         }
-                        us.send("makestep *|* " + JSON.stringify({title: loca.title, sub_info: info, scan_info: dialog}));
+                        let mob_names = [];
+                        let mobs_info = [];
+                        let mobs_pwr = 0;
+                        for (let i in docs) {
+                            mob_names.push(docs[i]['name']);
+                            mobs_info.push(docs[i]['info']);
+                            mobs_pwr += docs[i]['lvl'] * docs[i]['quality'];
+                        }
+                        let info = 'Сканер распознал объекты: ' + mob_names.join(',') + '... <br>';
+                        info += mobs_info.join('...<br>');
+                        info += '<br>Уровень опасности: ' + mobs_pwr + '...<br>';
+                        let dialog = '<div id="inr_txt">Собака смотрит на вас с недоверием... <br> Она явно входит в боевой режим...<br> Варианты действия: </div>';
+                        dialog += '<div class="dialog_option" id="dlg_1" onclick="Attack();">Атаковать</div>';
+                        let flag = false;
+                        for (let i in usr.stuff) {
+                            if (usr.stuff[i] == 'stick') {
+                                flag = true;
+                                dialog += '<div class="dialog_option" id="dlg_2" onclick="dialoger(0);">Кинуть палку</div>';
+                            }
+                        }
+                        if (!flag) {
+                            for (let i in usr.equiped) {
+                                if (usr.equiped[i]['item'] == 'stick') {
+                                    dialog += '<div class="dialog_option" id="dlg_2" onclick="dialoger(0);">Кинуть палку</div>';
+                                }
+                            }
+                        }
+                        dialog += '<div class="dialog_option" id="dlg_3" onclick="make_step(0);">Отступить</div>';
+                        users.updateOne({login: usr.login}, {$set: {loca: loca.id}}, function (err, tt) {
+                            if (err) {
+                                console.log("error");
+                                console.log(err);
+                                us.send("error");
+                                return;
+                            }
+                            us.send("makestep *|* " + JSON.stringify({
+                                title: loca.title,
+                                sub_info: info,
+                                scan_info: dialog
+                            }));
+                        });
                     });
-                });
+                } else {
+                    let info = 'Славное вышло сражение...<br>Кажется, дальше видно свет улицы...' +
+                        '<button onclick="make_step(1);">Подойти</button>\n' +
+                        '                <button onclick="scan();">Просканировать местность</button>';
+                    let dialog = 'Бардакжжж...<br>';
+                    us.send("makestep *|* " + JSON.stringify({title: 'RoboGraveYardEntrence', sub_info: info, scan_info: dialog}));
+                }
             } else {
                 us.send("error");
                 return;
@@ -748,7 +784,7 @@ function attack(usr, us) {
                             ehp[i] = parseInt(enemies[i]['dur']) * parseInt(enemies[i]['lvl']) * 5;
                         }
                         let uhp = parseInt(uzr.lvl) * parseInt(uzr.dur) * 5;
-                        let fobj = {uzr: uzr, enemies: enemies, fid: ttt.insertedId, uchrd: '1_1', ehp: ehp, echrds: echrds, uhp: uhp, dati: Math.floor((new Date).getTime()/1000)};
+                        let fobj = {uzr: uzr, step: 1, enemies: enemies, fid: ttt.insertedId, uchrd: '1_1', ehp: ehp, echrds: echrds, uhp: uhp, dati: Math.floor((new Date).getTime()/1000)};
                         fHistory.insertOne(fobj, function (err, tttt) {
                             if (err) {
                                 console.log("error");
@@ -784,24 +820,25 @@ function getfightstate(lgn, us) {
                 us.send("error");
                 return;
             }
-            fight.findOne({login: lgn}, function(err, fght) {
+            fight.find({login: lgn}).sort({dati: -1}).limit(1).toArray(function(err, fght) {
                 if (err) {
                     console.log("error");
                     console.log(err);
                     us.send("error");
                     return;
                 }
+                fght = fght[0];
                 let id = new mongo.ObjectID(fght._id);
-                fHistory.find({fid: id}).sort({dati: -1}).toArray(function(err, fh) {
+                fHistory.find({fid: id}).sort({step: -1}).limit(1).toArray(function(err, fh) {
                     if (err) {
                         console.log("error");
                         console.log(err);
                         us.send("error");
                         return;
                     }
-
                     let fobj = {
                         uzr: uzr,
+                        loca: fh[0]['uzr']['loca'],
                         enemies: fh[0]['enemies'],
                         fid: fght._id,
                         uchrd: fh[0]['uchrd'],
@@ -822,15 +859,9 @@ function getfightstate(lgn, us) {
 function figthstat(data) {
     let datka = JSON.parse(data);
     const fHistory = db.collection("fhistory");
-    console.log("datka:");
-    console.log(datka);
     //let fobj = {fid: ttt.insertedId, uchrd: '1_1', ehp: ehp, echrds: echrds, uhp: uhp, dati: Math.floor((new Date).getTime()/1000)};
-
     let id = new mongo.ObjectID(datka.fid);
-
-    console.log("id = ", id, datka.fid);
-
-    fHistory.findOne({fid: id}, {"sort": ['dati','desc']}, function(err, doc){
+    fHistory.find({fid: id}).sort({step: -1}).limit(1).toArray(function(err, doc) {
         if (err) {
             console.log("error");
             console.log(err);
@@ -841,6 +872,7 @@ function figthstat(data) {
             console.log('WTF???');
             return;
         }
+        doc = doc[0];
         for (let i in doc) {
             //console.log("i: " + i);
             if (typeof(datka[i]) !== "undefined" && i !== 'fid') {
@@ -855,6 +887,10 @@ function figthstat(data) {
         }
         delete doc["_id"];
         doc.dati = Math.floor((new Date).getTime()/1000);
+        doc.step = parseInt(doc.step) + 1;
+        doc.ap_avail = parseInt(doc['uzr']['energy']);
+        //console.log("doc = ");
+        //console.log(doc);
         fHistory.insertOne(doc, function (err, tttt) {
             if (err) {
                 console.log("error");
@@ -865,4 +901,135 @@ function figthstat(data) {
             //us.send("fight *|* " + JSON.stringify(fobj));
         });
     });
+}
+
+function ydar(da, us) {
+    let datka = JSON.parse(da);
+    let suc = false;
+    const fHistory = db.collection("fhistory");
+    const skills = db.collection("skills");
+    let id = new mongo.ObjectID(datka.fid);
+    let dmg = 0;
+    let mnoj = 0;
+    fHistory.find({fid: id}).sort({step: -1}).limit(1).toArray(function(err, fh) {
+        if (err) {
+            console.log("error");
+            console.log(err);
+            us.send("error");
+            return;
+        }
+        fh = fh[0];
+        skills.find({name: datka.skl}).limit(1).toArray(function(err, skl){
+            if (err) {
+                console.log("error");
+                console.log(err);
+                us.send("error");
+                return;
+            }
+            if (!skl) {
+                console.log("WTF??");
+                return;
+            }
+            skl = skl[0];
+            let new_ap_avail = parseInt(fh.ap_avail) - parseInt(skl.cost);
+            let chnc = Math.ceil((parseInt(fh.uzr[skl['type']])*100) / 5);
+            if (parseInt(datka.yz) == 5) {
+                chnc += 50;
+            }
+            let rnd = getRandomInt(101);
+            if (rnd <= chnc) {
+                suc = true;
+                if (parseInt(datka.yz) == 5) {
+                    mnoj = 2;
+                } else {
+                    mnoj = 3;
+                }
+                dmg = (getRandomInt(mnoj)+1) * parseInt(fh['uzr']['power']);
+            }
+            delete fh["_id"];
+            fh.doing = skl.name;
+            fh.dati = Math.floor((new Date).getTime()/1000);
+            fh.ap_avail = new_ap_avail;
+            fh['ehp'][datka['enemy']] = parseInt(fh.ehp[datka['enemy']]) - dmg;
+            fh.udmg = dmg;
+            fh.suc = suc;
+            fh.step = parseInt(fh.step)+1;
+            if (fh['ehp'][datka['enemy']] < 1) {
+                fh.ended = true;
+                const users = db.collection("users");
+                if (typeof fh.uzr.kills === 'undefined') {
+                    fh.uzr.kills = [fh.enemies[datka['enemy']].id];
+                } else {
+                    fh.uzr.kills.append(fh.enemies[datka['enemy']].id);
+                }
+                users.updateOne({login: fh.uzr.login}, {$set:{infight: 0, mobkilled: fh.uzr.kills}});
+                const loot = db.collection("loot");
+                loot.insertOne({login: fh.uzr.login, loca: 0, loot:["robodog_remains", "останки робо-собачки"]});
+            }
+            fHistory.insertOne(fh, function (err, tttt) {
+                if (err) {
+                    console.log("error");
+                    console.log(err);
+                    us.send("error");
+                    return;
+                }
+                us.send("fighting *|* " + JSON.stringify(fh));
+            });
+        });
+    });
+}
+
+function enemy_strikes(data, us){
+    let datka = JSON.parse(data);
+    const fHistory = db.collection("fhistory");
+    let id = new mongo.ObjectID(datka.fid);
+    let mob = parseInt(datka.enemy);
+    let dmg = 0;
+    let type = 'gunless';
+    let suc = false;
+    fHistory.find({fid: id}).sort({step: -1}).limit(1).toArray(function(err, fh) {
+        if (err) {
+            console.log("error");
+            console.log(err);
+            us.send("error");
+            return;
+        }
+        fh = fh[0];
+        if (fh.enemies[mob]['id'] == 1) {
+            type = 'gunless';
+        }
+        let chnc = Math.ceil((parseInt(fh.enemies[mob][type])*100) / 5);
+        let rnd = getRandomInt(101);
+        if (rnd <= chnc) {
+            suc = true;
+            dmg = (getRandomInt(3)+1) * parseInt(fh.enemies[mob]['power']);
+        }
+        delete fh["_id"];
+        fh.doing = fh.enemies[mob]['name'] + ' attacked';
+        fh.step = parseInt(fh.step)+1;
+        fh.suc = suc;
+        fh.edmg = dmg;
+        fh.suc = suc;
+        fh.dati = Math.floor((new Date).getTime()/1000);
+        fh.uhp = parseInt(fh.uhp) - dmg;
+        if (fh.uhp < 1) {
+            fh.ended = true;
+            const users = db.collection("users");
+            users.updateOne({login: fh.uzr.login}, {$set:{infight: 0, loca: 0}});
+        }
+        fHistory.insertOne(fh, function (err, tttt) {
+            if (err) {
+                console.log("error");
+                console.log(err);
+                us.send("error");
+                return;
+            }
+            us.send("enemy_strikes *|* " + JSON.stringify(fh));
+        });
+    });
+
+}
+
+function getRandomInt(max) {
+    return Math.floor(Math.random() * Math.floor(max));
 }
